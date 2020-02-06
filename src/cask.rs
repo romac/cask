@@ -1,5 +1,5 @@
-use std::collections::{BTreeSet, HashMap};
 use std::collections::hash_map::{Entry as HashMapEntry, Keys};
+use std::collections::{BTreeSet, HashMap};
 use std::default::Default;
 use std::path::PathBuf;
 use std::result::Result::Ok;
@@ -104,17 +104,14 @@ impl CaskInner {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let value = match self.index.get(key) {
             Some(index_entry) => {
-                let entry = self.log.read_entry(
-                    index_entry.file_id,
-                    index_entry.entry_pos,
-                )?;
+                let entry = self
+                    .log
+                    .read_entry(index_entry.file_id, index_entry.entry_pos)?;
                 if entry.deleted {
                     warn!(
                         "Index pointed to dead entry: Entry {{ key: {:?}, sequence: {} }} at \
                          file: {}",
-                        entry.key,
-                        entry.sequence,
-                        index_entry.file_id
+                        entry.key, entry.sequence, index_entry.file_id
                     );
                     None
                 } else {
@@ -421,7 +418,7 @@ impl Cask {
 
                     info!("Compaction thread wake up");
 
-                    let current_hour = time::now().tm_hour as usize;
+                    let current_hour = time::PrimitiveDateTime::now().hour() as usize;
                     let (window_start, window_end) = cask.options.compaction_window;
 
                     let in_window = if window_start <= window_end {
@@ -449,9 +446,7 @@ impl Cask {
     }
 
     fn compact_files_aux(&self, files: &[u32]) -> Result<(Vec<u32>, Vec<u32>)> {
-        let active_file_id = {
-            self.inner.read().unwrap().log.active_file_id
-        };
+        let active_file_id = { self.inner.read().unwrap().log.active_file_id };
 
         let compacted_files_hints = files.iter().flat_map(|&file_id| {
             if active_file_id.is_some() && active_file_id.unwrap() == file_id {
@@ -528,9 +523,7 @@ impl Cask {
         let (ref compacted_files, ref new_files) = self.compact_files_aux(files)?;
 
         for &file_id in new_files {
-            let hints = {
-                self.inner.read().unwrap().log.hints(file_id)?
-            };
+            let hints = { self.inner.read().unwrap().log.hints(file_id)? };
 
             if let Some(hints) = hints {
                 for hint in hints {
@@ -540,20 +533,23 @@ impl Cask {
             };
         }
 
-        self.inner.write().unwrap().index.stats.remove_files(
-            compacted_files,
-        );
+        self.inner
+            .write()
+            .unwrap()
+            .index
+            .stats
+            .remove_files(compacted_files);
 
-        self.inner.write().unwrap().log.swap_files(
-            compacted_files,
-            new_files,
-        )?;
+        self.inner
+            .write()
+            .unwrap()
+            .log
+            .swap_files(compacted_files, new_files)?;
 
         // FIXME: print files not compacted
         info!(
             "Finished compacting data files: {:?} into: {:?}",
-            compacted_files,
-            new_files
+            compacted_files, new_files
         );
 
         Ok(())
@@ -563,13 +559,9 @@ impl Cask {
     pub fn compact(&self) -> Result<()> {
         let _lock = self.compaction.lock().unwrap();
 
-        let active_file_id = {
-            self.inner.read().unwrap().log.active_file_id
-        };
+        let active_file_id = { self.inner.read().unwrap().log.active_file_id };
 
-        let file_stats = {
-            self.inner.read().unwrap().index.stats.file_stats()
-        };
+        let file_stats = { self.inner.read().unwrap().index.stats.file_stats() };
 
         let mut files = BTreeSet::new();
         let mut triggered = false;
@@ -588,8 +580,7 @@ impl Cask {
                     );
                     triggered = true;
                     files.insert(file_id);
-                } else if dead_bytes >= self.options.dead_bytes_trigger &&
-                           !files.contains(&file_id)
+                } else if dead_bytes >= self.options.dead_bytes_trigger && !files.contains(&file_id)
                 {
                     info!(
                         "File {} has {} of dead data, triggered compaction",
@@ -618,9 +609,7 @@ impl Cask {
             }
 
             if !files.contains(&file_id) {
-                let file_size = {
-                    self.inner.read().unwrap().log.file_size(file_id).ok()
-                };
+                let file_size = { self.inner.read().unwrap().log.file_size(file_id).ok() };
 
                 if let Some(file_size) = file_size {
                     if file_size <= self.options.small_file_threshold {

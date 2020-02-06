@@ -32,30 +32,21 @@ impl Display for Error {
         match *self {
             Error::Io(ref err) => write!(f, "IO error: {}", err),
             Error::InvalidFileId(file_id) => write!(f, "Invalid file id: {}", file_id),
-            Error::InvalidKeySize(size) => {
-                write!(
-                    f,
-                    "Invalid key size, max: {}, found: {}",
-                    MAX_KEY_SIZE,
-                    size
-                )
-            }
-            Error::InvalidValueSize(size) => {
-                write!(
-                    f,
-                    "Invalid value size, max: {}, found: {}",
-                    MAX_VALUE_SIZE,
-                    size
-                )
-            }
-            Error::InvalidChecksum { expected, found } => {
-                write!(
-                    f,
-                    "Invalid checksum, expected: {}, found: {}",
-                    expected,
-                    found
-                )
-            }
+            Error::InvalidKeySize(size) => write!(
+                f,
+                "Invalid key size, max: {}, found: {}",
+                MAX_KEY_SIZE, size
+            ),
+            Error::InvalidValueSize(size) => write!(
+                f,
+                "Invalid value size, max: {}, found: {}",
+                MAX_VALUE_SIZE, size
+            ),
+            Error::InvalidChecksum { expected, found } => write!(
+                f,
+                "Invalid checksum, expected: {}, found: {}",
+                expected, found
+            ),
             Error::InvalidPath(ref path) => write!(f, "Invalid path provided: {}", path),
         }
     }
@@ -66,7 +57,6 @@ impl From<io::Error> for Error {
         Error::Io(err)
     }
 }
-
 
 impl error::Error for Error {
     fn description(&self) -> &str {
@@ -80,7 +70,7 @@ impl error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::Io(ref err) => Some(err),
             _ => None,
